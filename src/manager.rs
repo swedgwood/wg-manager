@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use std::{net::Ipv4Addr, path::Path};
+use std::{net::{Ipv4Addr, SocketAddrV4}, path::Path};
 
 use crate::wg::{wg_genkey, wg_pubkey};
 
@@ -8,23 +8,24 @@ use crate::wg::{wg_genkey, wg_pubkey};
 pub struct Manager {
     private_key: String,
     public_key: String,
+    endpoint: SocketAddrV4,
 
-    ip: std::net::Ipv4Addr,
-    subnet_bits: u8,
+    // (ip_range, subnet_bits), i.e. 10.33.7.0/24 => (10.33.7.0, 24)
+    ip_range: (std::net::Ipv4Addr, u8), 
 
     clients: Vec<Client>,
 }
 
 impl Manager {
-    pub fn new(ip: Ipv4Addr, subnet_bits: u8) -> Self {
+    pub fn new(endpoint: SocketAddrV4, ip_range: Ipv4Addr, subnet_bits: u8) -> Self {
         let private_key = wg_genkey();
         let public_key = wg_pubkey(&private_key);
 
         Manager {
             private_key,
             public_key,
-            ip,
-            subnet_bits,
+            endpoint,
+            ip_range: (ip_range, subnet_bits),
             clients: Vec::new(),
         }
     }
@@ -42,25 +43,35 @@ impl Manager {
     }
 
     // Creates new client and returns private key
-    fn new_client(&mut self, familiar_name: String, ip: Ipv4Addr) -> String {
+    pub fn new_client(&mut self, name: String, ip: Ipv4Addr) -> (&Client, String) {
         let private_key = wg_genkey();
         let public_key = wg_pubkey(&private_key);
 
         // TODO: need to check name is unique
         let client = Client {
-            familiar_name,
+            name,
             public_key,
             ip,
         };
 
         self.clients.push(client);
-        private_key
+        (&client, private_key)
+    }
+
+    pub fn endpoint(&self) -> SocketAddrV4 {
+        self.endpoint
     }
 }
 
 #[derive(Serialize, Deserialize)]
 struct Client {
-    familiar_name: String,
+    name: String,
     public_key: String,
     ip: Ipv4Addr,
+}
+
+impl Client {
+    pub fn public_key(&self) -> String {
+        self.public_key
+    }
 }
