@@ -1,7 +1,12 @@
+use ipnet::Ipv4Net;
 use serde::{Deserialize, Serialize};
 
-use std::{net::{Ipv4Addr, SocketAddrV4}, path::Path};
+use std::{
+    net::{Ipv4Addr, SocketAddrV4},
+    path::Path,
+};
 
+use crate::utils::{deserialize_ipv4net, serialize_ipv4net};
 use crate::wg::{wg_genkey, wg_pubkey};
 
 #[derive(Serialize, Deserialize)]
@@ -11,13 +16,17 @@ pub struct Manager {
     endpoint: SocketAddrV4,
 
     // (ip_range, subnet_bits), i.e. 10.33.7.0/24 => (10.33.7.0, 24)
-    ip_range: (std::net::Ipv4Addr, u8), 
+    #[serde(
+        serialize_with = "serialize_ipv4net",
+        deserialize_with = "deserialize_ipv4net"
+    )]
+    ip_range: Ipv4Net,
 
     clients: Vec<Client>,
 }
 
 impl Manager {
-    pub fn new(endpoint: SocketAddrV4, ip_range: Ipv4Addr, subnet_bits: u8) -> Self {
+    pub fn new(endpoint: SocketAddrV4, ip_range: Ipv4Net) -> Self {
         let private_key = wg_genkey();
         let public_key = wg_pubkey(&private_key);
 
@@ -25,7 +34,7 @@ impl Manager {
             private_key,
             public_key,
             endpoint,
-            ip_range: (ip_range, subnet_bits),
+            ip_range,
             clients: Vec::new(),
         }
     }

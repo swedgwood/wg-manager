@@ -1,4 +1,9 @@
-use std::{net::{Ipv4Addr, SocketAddrV4}, path::Path};
+use std::{
+    net::{Ipv4Addr, SocketAddrV4},
+    path::Path,
+};
+
+use ipnet::Ipv4Net;
 
 use crate::manager::Manager;
 
@@ -6,9 +11,7 @@ const NAME: &'static str = env!("CARGO_PKG_NAME");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
 
-pub struct CLI {
-
-}
+pub struct CLI {}
 
 impl CLI {
     pub fn run() {
@@ -18,7 +21,7 @@ impl CLI {
             (about: "Tool to help manage a WireGuard server")
             (@setting SubcommandRequiredElseHelp)
             (@arg CONFIG: -c --config [FILE] "Path to config file")
-            (@subcommand new => 
+            (@subcommand new =>
                 (about: "Configure a new server (and create config)")
                 (@arg ("IP-RANGE"): * "IPv4 range for the VPN in CIDR notation")
                 (@arg ("BIND-SOCKET-ADDR"): * "The IPv4 address and port to bind to (e.g. 127.0.0.1:51900), default port is 51900")
@@ -43,7 +46,6 @@ impl CLI {
         );
         let app_m = app.get_matches();
 
-
         let config = match app_m.value_of("CONFIG") {
             Some(path) => Path::new(path),
             // use default if no config path specified
@@ -52,14 +54,13 @@ impl CLI {
 
         if let Some(sub_m) = app_m.subcommand_matches("new") {
             println!("new subcommand used");
-            let ip_range = sub_m.value_of("IP-RANGE").unwrap();
-            let (ip_range, subnet_bits) = parse_cidr_ipv4(ip_range);
+            let ip_range: Ipv4Net = sub_m.value_of("IP-RANGE").unwrap().parse().unwrap();
 
             let bind_socket = sub_m.value_of("BIND-SOCKET-ADDR").unwrap();
             // TODO: input validation
             let endpoint = bind_socket.parse().unwrap();
 
-            let manager = Manager::new(endpoint, ip_range, subnet_bits);
+            let manager = Manager::new(endpoint, ip_range);
             manager.save_config(config).expect("Failed to save config");
         } else {
             let mut manager = match Manager::from_config(config) {
@@ -87,7 +88,7 @@ impl CLI {
                         println!("Here is auto-generated config:\n{}", config_string);
 
                         manager.save_config(config).expect("Failed to save config");
-                    },
+                    }
                     ("list", Some(sub_m)) => todo!(),
                     ("delete", Some(sub_m)) => todo!(),
                     _ => panic!("Impossible"),
@@ -99,7 +100,12 @@ impl CLI {
 }
 
 // TODO: create a wg-quick style config
-fn create_client_config(ip: Ipv4Addr, pubkey: &String, privkey: &String, endpoint: SocketAddrV4) -> String {
+fn create_client_config(
+    ip: Ipv4Addr,
+    pubkey: &String,
+    privkey: &String,
+    endpoint: SocketAddrV4,
+) -> String {
     String::from("placeholder")
 }
 
