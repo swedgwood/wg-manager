@@ -55,7 +55,8 @@ impl Manager {
         };
 
         self.clients.push(client);
-        (&client, private_key)
+        let client = self.clients.last().unwrap();
+        (client, private_key)
     }
 
     pub fn endpoint(&self) -> SocketAddrV4 {
@@ -64,14 +65,14 @@ impl Manager {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Client {
+pub struct Client {
     name: String,
     public_key: String,
     ip: Ipv4Addr,
 }
 
 impl Client {
-    pub fn public_key(&self) -> String {
-        self.public_key
+    pub fn public_key(&self) -> &String {
+        &self.public_key
     }
 }
