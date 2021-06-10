@@ -59,10 +59,3 @@ fn strip_and_convert(bytes: &[u8]) -> String {
     }
     string
 }
-
-#[test]
-fn test() {
-    let a = wg_genkey();
-    let b = wg_pubkey(&a);
-    println!("{:?}", (a, b));
-}
