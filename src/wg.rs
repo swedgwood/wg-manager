@@ -45,7 +45,9 @@ pub fn wg_show_peers(interface: &str) -> Vec<String> {
     let peers: Vec<String> = output_bytes
         .split(|x| *x == b'\n')
         .map(|b| std::str::from_utf8(b).unwrap().to_owned())
+        .filter(|s| s.len() != 0)
         .collect();
+
     peers
 }
 
