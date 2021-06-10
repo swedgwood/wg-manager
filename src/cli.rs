@@ -47,6 +47,7 @@ pub fn run() {
             (about: "Configure a new server (and create config)")
             (@arg ("IP-RANGE"): * "IPv4 range for the VPN in CIDR notation")
             (@arg ("BIND-SOCKET-ADDR"): * "The IPv4 address and port to bind to (e.g. 127.0.0.1:51900), default port is 51900")
+            (@arg ("INTERFACE-NAME"): * "The name of the interface")
         )
         (@subcommand client =>
             (about: "Client-related commands")
@@ -109,8 +110,9 @@ fn process_commands(app_m: &ArgMatches, config: &Path) -> CLIResult {
 fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let ip_range = value_t!(sub_m, "IP-RANGE", Ipv4Net)?;
     let endpoint = value_t!(sub_m ,"BIND-SOCKET-ADDR", SocketAddrV4)?;
+    let interface_name = value_t!(sub_m, "INTERFACE-NAME", String)?;
 
-    let manager = Manager::new(endpoint, ip_range);
+    let manager = Manager::new(endpoint, ip_range, interface_name);
     save_manager(&manager, config)?;
     Ok(())
 }

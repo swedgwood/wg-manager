@@ -37,6 +37,7 @@ impl ToString for ManagerError {
 
 #[derive(Serialize, Deserialize)]
 pub struct Manager {
+    interface_name: String,
     private_key: String,
     public_key: String,
     endpoint: SocketAddrV4,
@@ -51,11 +52,12 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(endpoint: SocketAddrV4, ip_range: Ipv4Net) -> Self {
+    pub fn new(endpoint: SocketAddrV4, ip_range: Ipv4Net, interface_name: String) -> Self {
         let private_key = wg_genkey();
         let public_key = wg_pubkey(&private_key);
 
         Manager {
+            interface_name,
             private_key,
             public_key,
             endpoint,
