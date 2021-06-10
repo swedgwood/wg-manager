@@ -67,7 +67,8 @@ pub fn run() {
         Ok(()) => {},
         Err(e) => match e {
             CLIError::ClapError(e) => e.exit(),
-            e => err(&format!("{:?}", e))
+            CLIError::FailedToLoadConfig(e) => err(&format!("Failed to load config: {}", e.to_string())),
+            CLIError::FailedToSaveConfig(e) => err(&format!("Failed to save config: {}", e.to_string())),
         },
     };
 }

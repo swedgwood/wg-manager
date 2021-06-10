@@ -27,6 +27,15 @@ impl From<serde_json::Error> for ConfigError {
     }
 }
 
+impl ToString for ConfigError {
+    fn to_string(&self) -> String {
+        match &self {
+            &ConfigError::IOError(e) => e.to_string(),
+            &ConfigError::SerializationError(e) => e.to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Manager {
     private_key: String,
