@@ -1,37 +1,36 @@
 use ipnet::Ipv4Net;
 use serde::{Deserialize, Serialize};
 
-use std::{
-    net::{Ipv4Addr, SocketAddrV4},
-    path::Path,
-};
+use std::{collections::HashMap, net::{Ipv4Addr, SocketAddrV4}, path::Path};
 
 use crate::utils::{deserialize_ipv4net, serialize_ipv4net};
 use crate::wg::{wg_genkey, wg_pubkey};
 
 #[derive(Debug)]
-pub enum ConfigError {
+pub enum ManagerError {
     IOError(std::io::Error),
     SerializationError(serde_json::Error),
+    ClientNameExistsError(String),
 }
 
-impl From<std::io::Error> for ConfigError {
+impl From<std::io::Error> for ManagerError {
     fn from(e: std::io::Error) -> Self {
-        ConfigError::IOError(e)
+        ManagerError::IOError(e)
     }
 }
 
-impl From<serde_json::Error> for ConfigError {
+impl From<serde_json::Error> for ManagerError {
     fn from(e: serde_json::Error) -> Self {
-        ConfigError::SerializationError(e)
+        ManagerError::SerializationError(e)
     }
 }
 
-impl ToString for ConfigError {
+impl ToString for ManagerError {
     fn to_string(&self) -> String {
         match &self {
-            &ConfigError::IOError(e) => e.to_string(),
-            &ConfigError::SerializationError(e) => e.to_string(),
+            &ManagerError::IOError(e) => e.to_string(),
+            &ManagerError::SerializationError(e) => e.to_string(),
+            &ManagerError::ClientNameExistsError(name) => format!("client with name '{}' already exists", name),
         }
     }
 }
@@ -48,7 +47,7 @@ pub struct Manager {
     )]
     ip_range: Ipv4Net,
 
-    clients: Vec<Client>,
+    clients: HashMap<String, Client>,
 }
 
 impl Manager {
@@ -61,41 +60,43 @@ impl Manager {
             public_key,
             endpoint,
             ip_range,
-            clients: Vec::new(),
+            clients: HashMap::new(),
         }
     }
 
-    pub fn from_config(path: &Path) -> Result<Self, ConfigError> {
+    pub fn from_config(path: &Path) -> Result<Self, ManagerError> {
         let data = std::fs::read(path)?;
         let manager: Manager = serde_json::from_slice(&data)?;
         Ok(manager)
     }
 
-    pub fn save_config(&self, path: &Path) -> Result<(), ConfigError> {
+    pub fn save_config(&self, path: &Path) -> Result<(), ManagerError> {
         let data = serde_json::to_vec(self)?;
         std::fs::write(path, data)?;
         Ok(())
     }
 
     // Creates new client and returns private key
-    pub fn new_client(&mut self, name: String, ip: Ipv4Addr) -> (&Client, String) {
-        let private_key = wg_genkey();
-        let public_key = wg_pubkey(&private_key);
+    pub fn new_client(&mut self, name: String, ip: Ipv4Addr) -> Result<(&Client, String), ManagerError> {
+        if self.clients.contains_key(&name) {
+            Err(ManagerError::ClientNameExistsError(name))
+        } else {
+            let private_key = wg_genkey();
+            let public_key = wg_pubkey(&private_key);
 
-        // TODO: need to check name is unique
-        let client = Client {
-            name,
-            public_key,
-            ip,
-        };
+            let client = Client {
+                name: name.clone(),
+                public_key,
+                ip,
+            };
 
-        self.clients.push(client);
-        let client = self.clients.last().unwrap();
-        (client, private_key)
+            self.clients.insert(name.clone(), client);
+            Ok((self.clients.get(&name).unwrap(), private_key))
+        }
     }
 
-    pub fn clients(&self) -> &Vec<Client> {
-        &self.clients
+    pub fn clients(&self) -> Vec<&Client> {
+        self.clients.values().into_iter().collect()
     }
 
     pub fn endpoint(&self) -> SocketAddrV4 {

@@ -3,7 +3,7 @@ use std::{f32::consts::PI, net::{Ipv4Addr, SocketAddrV4}, path::Path};
 use clap::{App, ArgMatches};
 use ipnet::Ipv4Net;
 
-use crate::{manager::ConfigError, utils::cli_table};
+use crate::{manager::ManagerError, utils::cli_table};
 use crate::manager::Manager;
 
 const NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -14,14 +14,25 @@ type CLIResult = std::result::Result<(), CLIError>;
 
 #[derive(Debug)]
 enum CLIError {
-    FailedToLoadConfig(ConfigError),
-    FailedToSaveConfig(ConfigError),
+    FailedToLoadConfig(ManagerError),
+    FailedToSaveConfig(ManagerError),
     ClapError(clap::Error),
+    ClientNameExistsError(String),
+    Other(String),
 }
 
 impl From<clap::Error> for CLIError {
     fn from(e: clap::Error) -> Self {
         Self::ClapError(e)
+    }
+}
+
+impl From<ManagerError> for CLIError {
+    fn from(e: ManagerError) -> Self {
+        match e {
+            ManagerError::ClientNameExistsError(name) => CLIError::ClientNameExistsError(name),
+            _ => CLIError::Other(e.to_string())
+        }
     }
 }
 
@@ -69,6 +80,8 @@ pub fn run() {
             CLIError::ClapError(e) => e.exit(),
             CLIError::FailedToLoadConfig(e) => err(&format!("Failed to load config: {}", e.to_string())),
             CLIError::FailedToSaveConfig(e) => err(&format!("Failed to save config: {}", e.to_string())),
+            CLIError::ClientNameExistsError(name) => err(&format!("client with name '{}' already exists", name)),
+            CLIError::Other(e) => err(&e),
         },
     };
 }
@@ -109,7 +122,7 @@ fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let ip = value_t!(sub_m, "IP", Ipv4Addr)?;
     let endpoint = manager.endpoint();
 
-    let (client, privkey) = manager.new_client(name, ip);
+    let (client, privkey) = manager.new_client(name, ip)?;
     let pubkey = client.public_key();
 
     let config_string = create_client_config(ip, pubkey, &privkey, endpoint);
