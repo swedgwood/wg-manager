@@ -3,7 +3,7 @@ use std::{f32::consts::PI, net::{Ipv4Addr, SocketAddrV4}, path::Path};
 use clap::{App, ArgMatches};
 use ipnet::Ipv4Net;
 
-use crate::manager::ConfigError;
+use crate::{manager::ConfigError, utils::cli_table};
 use crate::manager::Manager;
 
 const NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -120,7 +120,24 @@ fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
 }
 
 fn sub_client_list(sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    todo!();
+    let manager = load_manager(config)?;
+
+    manager.clients();
+
+    let mut table: Vec<Vec<&str>> = Vec::new();
+
+    table.push(vec!["Name", "Pubkey"]);
+    for client in manager.clients() {
+        table.push(vec![client.name(), client.public_key()]);
+    }
+
+    let lines = cli_table(table);
+
+    for line in lines {
+        println!("{}", line);
+    }
+
+    Ok(())
 }
 
 fn sub_client_delete(sub_m: &ArgMatches, config: &Path) -> CLIResult {

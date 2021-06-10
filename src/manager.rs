@@ -85,6 +85,10 @@ impl Manager {
         (client, private_key)
     }
 
+    pub fn clients(&self) -> &Vec<Client> {
+        &self.clients
+    }
+
     pub fn endpoint(&self) -> SocketAddrV4 {
         self.endpoint
     }
@@ -98,6 +102,9 @@ pub struct Client {
 }
 
 impl Client {
+    pub fn name(&self) -> &String {
+        &self.name
+    }
     pub fn public_key(&self) -> &String {
         &self.public_key
     }
