@@ -9,13 +9,30 @@ use std::{
 use crate::utils::{deserialize_ipv4net, serialize_ipv4net};
 use crate::wg::{wg_genkey, wg_pubkey};
 
+#[derive(Debug)]
+pub enum ConfigError {
+    IOError(std::io::Error),
+    SerializationError(serde_json::Error),
+}
+
+impl From<std::io::Error> for ConfigError {
+    fn from(e: std::io::Error) -> Self {
+        ConfigError::IOError(e)
+    }
+}
+
+impl From<serde_json::Error> for ConfigError {
+    fn from(e: serde_json::Error) -> Self {
+        ConfigError::SerializationError(e)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Manager {
     private_key: String,
     public_key: String,
     endpoint: SocketAddrV4,
 
-    // (ip_range, subnet_bits), i.e. 10.33.7.0/24 => (10.33.7.0, 24)
     #[serde(
         serialize_with = "serialize_ipv4net",
         deserialize_with = "deserialize_ipv4net"
@@ -39,13 +56,13 @@ impl Manager {
         }
     }
 
-    pub fn from_config(path: &Path) -> std::io::Result<Self> {
+    pub fn from_config(path: &Path) -> Result<Self, ConfigError> {
         let data = std::fs::read(path)?;
         let manager: Manager = serde_json::from_slice(&data)?;
         Ok(manager)
     }
 
-    pub fn save_config(&self, path: &Path) -> std::io::Result<()> {
+    pub fn save_config(&self, path: &Path) -> Result<(), ConfigError> {
         let data = serde_json::to_vec(self)?;
         std::fs::write(path, data)?;
         Ok(())

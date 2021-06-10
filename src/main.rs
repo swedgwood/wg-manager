@@ -7,5 +7,5 @@ mod utils;
 mod wg;
 
 fn main() {
-    cli::CLI::run();
+    cli::run();
 }
