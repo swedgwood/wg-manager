@@ -1,7 +1,4 @@
-use std::{
-    io::Write,
-    process::{Command, Stdio},
-};
+use std::{ascii::AsciiExt, io::{BufRead, Write}, process::{Command, Stdio}};
 
 pub fn wg_genkey() -> String {
     let output_bytes = Command::new("wg")
@@ -30,6 +27,19 @@ pub fn wg_pubkey(privkey: &String) -> String {
     let output_bytes = child.wait_with_output().unwrap().stdout;
     let pubkey = strip_and_convert(&output_bytes);
     pubkey
+}
+
+pub fn wg_show_peers(interface: &str) -> Vec<String> {
+    let output_bytes = Command::new("wg")
+        .arg("show")
+        .arg(interface)
+        .arg("peers")
+        .output()
+        .expect(&format!("`wg show {} peers` failed", interface))
+        .stdout;
+    
+    let peers: Vec<String> = output_bytes.split(|x| *x==b'\n').map(|b| std::str::from_utf8(b).unwrap().to_owned()).collect();
+    peers
 }
 
 fn strip_and_convert(bytes: &[u8]) -> String {
