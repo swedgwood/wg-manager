@@ -1,7 +1,11 @@
 use ipnet::Ipv4Net;
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashMap, net::{Ipv4Addr, SocketAddrV4}, path::Path};
+use std::{
+    collections::HashMap,
+    net::{Ipv4Addr, SocketAddrV4},
+    path::Path,
+};
 
 use crate::utils::{deserialize_ipv4net, serialize_ipv4net};
 use crate::wg::{wg_genkey, wg_pubkey};
@@ -30,7 +34,9 @@ impl ToString for ManagerError {
         match &self {
             &ManagerError::IOError(e) => e.to_string(),
             &ManagerError::SerializationError(e) => e.to_string(),
-            &ManagerError::ClientNameExistsError(name) => format!("client with name '{}' already exists", name),
+            &ManagerError::ClientNameExistsError(name) => {
+                format!("client with name '{}' already exists", name)
+            }
         }
     }
 }
@@ -79,7 +85,11 @@ impl Manager {
     }
 
     // Creates new client and returns private key
-    pub fn new_client(&mut self, name: String, ip: Ipv4Addr) -> Result<(&Client, String), ManagerError> {
+    pub fn new_client(
+        &mut self,
+        name: String,
+        ip: Ipv4Addr,
+    ) -> Result<(&Client, String), ManagerError> {
         if self.clients.contains_key(&name) {
             Err(ManagerError::ClientNameExistsError(name))
         } else {

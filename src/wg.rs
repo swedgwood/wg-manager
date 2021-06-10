@@ -1,4 +1,8 @@
-use std::{ascii::AsciiExt, io::{BufRead, Write}, process::{Command, Stdio}};
+use std::{
+    ascii::AsciiExt,
+    io::{BufRead, Write},
+    process::{Command, Stdio},
+};
 
 pub fn wg_genkey() -> String {
     let output_bytes = Command::new("wg")
@@ -37,8 +41,11 @@ pub fn wg_show_peers(interface: &str) -> Vec<String> {
         .output()
         .expect(&format!("`wg show {} peers` failed", interface))
         .stdout;
-    
-    let peers: Vec<String> = output_bytes.split(|x| *x==b'\n').map(|b| std::str::from_utf8(b).unwrap().to_owned()).collect();
+
+    let peers: Vec<String> = output_bytes
+        .split(|x| *x == b'\n')
+        .map(|b| std::str::from_utf8(b).unwrap().to_owned())
+        .collect();
     peers
 }
 

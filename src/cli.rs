@@ -1,10 +1,14 @@
-use std::{f32::consts::PI, net::{Ipv4Addr, SocketAddrV4}, path::Path};
+use std::{
+    f32::consts::PI,
+    net::{Ipv4Addr, SocketAddrV4},
+    path::Path,
+};
 
 use clap::{App, ArgMatches};
 use ipnet::Ipv4Net;
 
-use crate::{manager::ManagerError, utils::cli_table};
 use crate::manager::Manager;
+use crate::{manager::ManagerError, utils::cli_table};
 
 const NAME: &'static str = env!("CARGO_PKG_NAME");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -31,7 +35,7 @@ impl From<ManagerError> for CLIError {
     fn from(e: ManagerError) -> Self {
         match e {
             ManagerError::ClientNameExistsError(name) => CLIError::ClientNameExistsError(name),
-            _ => CLIError::Other(e.to_string())
+            _ => CLIError::Other(e.to_string()),
         }
     }
 }
@@ -76,12 +80,18 @@ pub fn run() {
     };
 
     match process_commands(&app_m, config) {
-        Ok(()) => {},
+        Ok(()) => {}
         Err(e) => match e {
             CLIError::ClapError(e) => e.exit(),
-            CLIError::FailedToLoadConfig(e) => err(&format!("Failed to load config: {}", e.to_string())),
-            CLIError::FailedToSaveConfig(e) => err(&format!("Failed to save config: {}", e.to_string())),
-            CLIError::ClientNameExistsError(name) => err(&format!("client with name '{}' already exists", name)),
+            CLIError::FailedToLoadConfig(e) => {
+                err(&format!("Failed to load config: {}", e.to_string()))
+            }
+            CLIError::FailedToSaveConfig(e) => {
+                err(&format!("Failed to save config: {}", e.to_string()))
+            }
+            CLIError::ClientNameExistsError(name) => {
+                err(&format!("client with name '{}' already exists", name))
+            }
             CLIError::Other(e) => err(&e),
         },
     };
@@ -100,7 +110,7 @@ fn process_commands(app_m: &ArgMatches, config: &Path) -> CLIResult {
             ("list", Some(sub_m)) => sub_client_list(sub_m, config)?,
             ("delete", Some(sub_m)) => sub_client_delete(sub_m, config)?,
             _ => panic!("Impossible"),
-        }
+        },
         _ => panic!("Impossible"),
     }
 
@@ -109,7 +119,7 @@ fn process_commands(app_m: &ArgMatches, config: &Path) -> CLIResult {
 
 fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let ip_range = value_t!(sub_m, "IP-RANGE", Ipv4Net)?;
-    let endpoint = value_t!(sub_m ,"BIND-SOCKET-ADDR", SocketAddrV4)?;
+    let endpoint = value_t!(sub_m, "BIND-SOCKET-ADDR", SocketAddrV4)?;
     let interface_name = value_t!(sub_m, "INTERFACE-NAME", String)?;
 
     let manager = Manager::new(endpoint, ip_range, interface_name);

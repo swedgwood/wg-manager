@@ -38,7 +38,7 @@ pub fn cli_table(table: Vec<Vec<&str>>) -> Vec<String> {
         let mut line = String::new();
 
         for (i, cell) in row.iter().enumerate() {
-            let max_width = column_widths[i];    
+            let max_width = column_widths[i];
             let padding = max_width - cell.len();
             line.push_str(&" ".repeat(padding));
             line.push_str(cell);
