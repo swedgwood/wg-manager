@@ -1,0 +1,21 @@
+FROM ubuntu:bionic
+
+RUN apt update && \
+	apt install -y curl gcc wireguard iproute2 iputils-ping && \
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+ARG config
+ARG ip
+ENV IP $ip
+
+ADD $config /etc/wireguard/wg0.conf
+
+WORKDIR /code
+
+
+CMD ip link add wg0 type wireguard && \
+	ip address add dev wg0 $IP && \
+	wg setconf wg0 /etc/wireguard/wg0.conf && \ 
+	ip link set up dev wg0 && \
+	trap finish TERM INT && \
+	while true; do sleep 60; done
