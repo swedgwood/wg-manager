@@ -22,7 +22,7 @@ pub fn wg_pubkey(privkey: &String) -> String {
         .spawn()
         .expect("`wg pubkey` failed");
 
-    let mut child_stdin = child.stdin.as_mut().unwrap();
+    let child_stdin = child.stdin.as_mut().unwrap();
     child_stdin.write_all(privkey.as_bytes()).unwrap();
     child_stdin.write_all(b"\n").unwrap();
     drop(child_stdin);
