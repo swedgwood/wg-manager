@@ -93,11 +93,8 @@ fn process_commands(app_m: &ArgMatches, config: &Path) -> CLIResult {
 }
 
 fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    let ip_range: Ipv4Net = sub_m.value_of("IP-RANGE").unwrap().parse().unwrap();
-
-    let bind_socket = sub_m.value_of("BIND-SOCKET-ADDR").unwrap();
-    // TODO: input validation
-    let endpoint = bind_socket.parse().unwrap();
+    let ip_range = value_t!(sub_m, "IP-RANGE", Ipv4Net)?;
+    let endpoint = value_t!(sub_m ,"BIND-SOCKET-ADDR", SocketAddrV4)?;
 
     let manager = Manager::new(endpoint, ip_range);
     save_manager(&manager, config)?;
@@ -107,11 +104,11 @@ fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
 fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let mut manager = load_manager(config)?;
 
-    let name = sub_m.value_of("NAME").unwrap();
+    let name = value_t!(sub_m, "NAME", String)?;
     let ip = value_t!(sub_m, "IP", Ipv4Addr)?;
     let endpoint = manager.endpoint();
 
-    let (client, privkey) = manager.new_client(name.to_owned(), ip);
+    let (client, privkey) = manager.new_client(name, ip);
     let pubkey = client.public_key();
 
     let config_string = create_client_config(ip, pubkey, &privkey, endpoint);
