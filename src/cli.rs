@@ -1,4 +1,4 @@
-use std::{net::{Ipv4Addr, SocketAddrV4}, path::Path};
+use std::{f32::consts::PI, net::{Ipv4Addr, SocketAddrV4}, path::Path};
 
 use clap::{App, ArgMatches};
 use ipnet::Ipv4Net;
@@ -147,5 +147,5 @@ fn create_client_config(
     privkey: &String,
     endpoint: SocketAddrV4,
 ) -> String {
-    String::from("placeholder")
+    format!("placeholder({}, {}, {}, {})", ip, pubkey, privkey, endpoint)
 }
