@@ -10,7 +10,7 @@ const NAME: &'static str = env!("CARGO_PKG_NAME");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
 
-type Result<T> = std::result::Result<T, CLIError>;
+type CLIResult = std::result::Result<(), CLIError>;
 
 #[derive(Debug)]
 enum CLIError {
@@ -77,7 +77,7 @@ fn err(msg: &str) {
     clap::Error::with_description(msg, clap::ErrorKind::Io).exit()
 }
 
-fn process_commands(app_m: &ArgMatches, config: &Path) -> Result<()> {
+fn process_commands(app_m: &ArgMatches, config: &Path) -> CLIResult {
     match app_m.subcommand() {
         ("new", Some(sub_m)) => sub_new(sub_m, config)?,
         ("client", Some(sub_m)) => match sub_m.subcommand() {
@@ -92,7 +92,7 @@ fn process_commands(app_m: &ArgMatches, config: &Path) -> Result<()> {
     Ok(())
 }
 
-fn sub_new(sub_m: &ArgMatches, config: &Path) -> Result<()> {
+fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let ip_range: Ipv4Net = sub_m.value_of("IP-RANGE").unwrap().parse().unwrap();
 
     let bind_socket = sub_m.value_of("BIND-SOCKET-ADDR").unwrap();
@@ -104,7 +104,7 @@ fn sub_new(sub_m: &ArgMatches, config: &Path) -> Result<()> {
     Ok(())
 }
 
-fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> Result<()> {
+fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let mut manager = load_manager(config)?;
 
     let name = sub_m.value_of("NAME").unwrap();
@@ -122,19 +122,19 @@ fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> Result<()> {
     Ok(())
 }
 
-fn sub_client_list(sub_m: &ArgMatches, config: &Path) -> Result<()> {
+fn sub_client_list(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     todo!();
 }
 
-fn sub_client_delete(sub_m: &ArgMatches, config: &Path) -> Result<()> {
+fn sub_client_delete(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     todo!();
 }
 
-fn load_manager(config: &Path) -> Result<Manager> {
+fn load_manager(config: &Path) -> Result<Manager, CLIError> {
     Manager::from_config(config).map_err(|e| CLIError::FailedToLoadConfig(e))
 }
 
-fn save_manager(manager: &Manager, config: &Path) -> Result<()> {
+fn save_manager(manager: &Manager, config: &Path) -> CLIResult {
     manager
         .save_config(config)
         .map_err(|e| CLIError::FailedToSaveConfig(e))
