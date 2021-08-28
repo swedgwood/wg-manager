@@ -1,6 +1,6 @@
+/// Minimal bindings to the `wg` binary.
 use std::{
-    ascii::AsciiExt,
-    io::{BufRead, Write},
+    io::Write,
     process::{Command, Stdio},
 };
 
