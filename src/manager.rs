@@ -72,14 +72,20 @@ impl Manager {
         }
     }
 
+    /// Produces `Manager` struct from the contents of a config file
+    ///
+    /// NOTE: `from_config` and `save_config` do not handle file locking
     pub fn from_config(path: &Path) -> Result<Self, ManagerError> {
         let data = std::fs::read(path)?;
         let manager: Manager = serde_json::from_slice(&data)?;
         Ok(manager)
     }
 
-    pub fn save_config(&self, path: &Path) -> Result<(), ManagerError> {
-        let data = serde_json::to_vec(self)?;
+    /// Save `Manager` struct to the contents of a config file
+    ///
+    /// NOTE: `from_config` and `save_config` do not handle file locking
+    pub fn save_config(self, path: &Path) -> Result<(), ManagerError> {
+        let data = serde_json::to_vec(&self)?;
         std::fs::write(path, data)?;
         Ok(())
     }

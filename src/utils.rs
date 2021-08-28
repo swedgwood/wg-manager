@@ -70,10 +70,22 @@ pub fn lock_path(file_path: &Path) -> PathBuf {
     file_path.with_file_name(lock_name)
 }
 
+/// An error with file locking
+#[derive(Debug)]
 pub enum LockError {
     MalformedLockExists,
     LockExists(u32),
     IOError(std::io::Error),
+}
+
+impl ToString for LockError {
+    fn to_string(&self) -> String {
+        match &self {
+            LockError::MalformedLockExists => "lock exists, but it is malformed".into(),
+            LockError::LockExists(e) => format!("lock exists with process id: {}", e),
+            LockError::IOError(e) => e.to_string(),
+        }
+    }
 }
 
 impl From<std::io::Error> for LockError {
@@ -94,6 +106,7 @@ impl From<std::io::Error> for LockError {
 /// Lock dropping rules
 /// 1. Releasing a lock cannot fail in the sense that an Err is returned, so will require
 ///    manual intervention if the lock cannot be deleted.
+#[derive(Debug)]
 pub struct Lock(PathBuf);
 
 impl Lock {

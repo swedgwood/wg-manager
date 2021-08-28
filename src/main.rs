@@ -14,7 +14,7 @@ use clap::ArgMatches;
 use ipnet::Ipv4Net;
 
 use manager::{Manager, ManagerError};
-use utils::cli_table;
+use utils::{cli_table, Lock, LockError};
 
 const NAME: &'static str = env!("CARGO_PKG_NAME");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -27,8 +27,26 @@ enum CLIError {
     FailedToLoadConfig(ManagerError),
     FailedToSaveConfig(ManagerError),
     ClapError(clap::Error),
-    ClientNameExistsError(String),
+    LockAcquisitionError(LockError),
     Other(String),
+}
+
+impl ToString for CLIError {
+    fn to_string(&self) -> String {
+        match self {
+            CLIError::FailedToLoadConfig(e) => {
+                format!("Failed to load config: {}", e.to_string())
+            }
+            CLIError::FailedToSaveConfig(e) => {
+                format!("Failed to save config: {}", e.to_string())
+            }
+            CLIError::ClapError(e) => format!("Failure in argument parsing: {}", e.to_string()),
+            CLIError::LockAcquisitionError(e) => {
+                format!("Failed to acquire lock on config: {}", e.to_string())
+            }
+            CLIError::Other(e) => e.to_string(),
+        }
+    }
 }
 
 impl From<clap::Error> for CLIError {
@@ -40,7 +58,9 @@ impl From<clap::Error> for CLIError {
 impl From<ManagerError> for CLIError {
     fn from(e: ManagerError) -> Self {
         match e {
-            ManagerError::ClientNameExistsError(name) => CLIError::ClientNameExistsError(name),
+            ManagerError::ClientNameExistsError(name) => {
+                CLIError::Other(format!("client with name '{}' already exists", name))
+            }
             _ => CLIError::Other(e.to_string()),
         }
     }
@@ -89,16 +109,7 @@ pub fn main() {
         Ok(()) => {}
         Err(e) => match e {
             CLIError::ClapError(e) => e.exit(),
-            CLIError::FailedToLoadConfig(e) => {
-                err(&format!("Failed to load config: {}", e.to_string()))
-            }
-            CLIError::FailedToSaveConfig(e) => {
-                err(&format!("Failed to save config: {}", e.to_string()))
-            }
-            CLIError::ClientNameExistsError(name) => {
-                err(&format!("client with name '{}' already exists", name))
-            }
-            CLIError::Other(e) => err(&e),
+            other => err(&other.to_string()),
         },
     };
 }
@@ -129,12 +140,13 @@ fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     let interface_name = value_t!(sub_m, "INTERFACE-NAME", String)?;
 
     let manager = Manager::new(endpoint, ip_range, interface_name);
-    save_manager(manager, config)?;
+    let lock = acquire_config_lock(config)?;
+    save_manager(manager, lock, config)?;
     Ok(())
 }
 
 fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    let mut manager = load_manager(config)?;
+    let (mut manager, lock) = load_manager(config)?;
 
     let name = value_t!(sub_m, "NAME", String)?;
     let ip = value_t!(sub_m, "IP", Ipv4Addr)?;
@@ -147,12 +159,12 @@ fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
 
     println!("Here is auto-generated config:\n{}", config_string);
 
-    save_manager(manager, config)?;
+    save_manager(manager, lock, config)?;
     Ok(())
 }
 
 fn sub_client_list(_sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    let manager = load_manager(config)?;
+    let manager = load_manager_no_lock(config)?;
 
     manager.clients();
 
@@ -176,15 +188,33 @@ fn sub_client_delete(sub_m: &ArgMatches, config: &Path) -> CLIResult {
     todo!();
 }
 
-fn load_manager(config: &Path) -> Result<Manager, CLIError> {
-    Manager::from_config(config).map_err(|e| CLIError::FailedToLoadConfig(e))
+/// Loads manager from a file, providing a lock for it.
+fn load_manager(config_path: &Path) -> Result<(Manager, Lock), CLIError> {
+    let lock = acquire_config_lock(config_path)?;
+    let manager = load_manager_no_lock(config_path)?;
+
+    Ok((manager, lock))
 }
 
-fn save_manager(manager: Manager, config: &Path) -> CLIResult {
+/// Loads manager from file, without a lock. Useful for read-only operations.
+fn load_manager_no_lock(config_path: &Path) -> Result<Manager, CLIError> {
+    Manager::from_config(config_path).map_err(|e| CLIError::FailedToLoadConfig(e))
+}
+
+/// Commits manager back to file, consuming a lock.
+// Note that `_lock` is dropped at the end of the scope, and so released
+fn save_manager(manager: Manager, _lock: Lock, config: &Path) -> CLIResult {
     manager
         .save_config(config)
         // TODO: sort out some way to save yourself from this failure maybe????
         .map_err(|e| CLIError::FailedToSaveConfig(e))
+}
+
+fn acquire_config_lock(config_path: &Path) -> Result<Lock, CLIError> {
+    let lock_path = utils::lock_path(config_path);
+    let lock = Lock::acquire(lock_path).map_err(|e| CLIError::LockAcquisitionError(e))?;
+
+    Ok(lock)
 }
 
 // TODO: create a wg-quick style config
