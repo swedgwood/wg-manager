@@ -56,6 +56,10 @@ pub fn cli_table(table: Vec<Vec<&str>>) -> Vec<String> {
     lines
 }
 
+/// Generates a lock path to specific file path.
+///
+/// Same file path will always produce same lock path.
+/// Function assumes `file_path.file_name()` returns a `Some`, i.e. that the file path has a file name.
 pub fn lock_path(file_path: &Path) -> PathBuf {
     let file_name = file_path.file_name().unwrap();
 
