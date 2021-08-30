@@ -73,6 +73,7 @@ pub fn main() {
         (about: "Tool to help manage a WireGuard server")
         (@setting SubcommandRequiredElseHelp)
         (@arg CONFIG: -c --config [FILE] "Path to config file")
+        (@arg DRY_RUN: -D --("dry-run") "Don't commit changes to the wireguard interface")
         (@subcommand new =>
             (about: "Configure a new server (and create config)")
             (@arg ("IP-RANGE"): * "IPv4 range for the VPN in CIDR notation")
@@ -105,7 +106,11 @@ pub fn main() {
         None => Path::new("./wgman.conf"),
     };
 
-    match process_commands(&app_m, config) {
+    let dry_run = app_m.is_present("DRY_RUN");
+
+    let cli = Cli { config, dry_run };
+
+    match cli.process_commands(&app_m) {
         Ok(()) => {}
         Err(e) => match e {
             CLIError::ClapError(e) => e.exit(),
@@ -119,73 +124,80 @@ fn err(msg: &str) {
     clap::Error::with_description(msg, clap::ErrorKind::Io).exit()
 }
 
-fn process_commands(app_m: &ArgMatches, config: &Path) -> CLIResult {
-    match app_m.subcommand() {
-        ("new", Some(sub_m)) => sub_new(sub_m, config)?,
-        ("client", Some(sub_m)) => match sub_m.subcommand() {
-            ("new", Some(sub_m)) => sub_client_new(sub_m, config)?,
-            ("list", Some(sub_m)) => sub_client_list(sub_m, config)?,
-            ("delete", Some(sub_m)) => sub_client_delete(sub_m, config)?,
+struct Cli<'a> {
+    config: &'a Path,
+    dry_run: bool,
+}
+
+impl<'a> Cli<'a> {
+    fn process_commands(&self, app_m: &ArgMatches) -> CLIResult {
+        match app_m.subcommand() {
+            ("new", Some(sub_m)) => self.sub_new(sub_m)?,
+            ("client", Some(sub_m)) => match sub_m.subcommand() {
+                ("new", Some(sub_m)) => self.sub_client_new(sub_m)?,
+                ("list", Some(sub_m)) => self.sub_client_list(sub_m)?,
+                ("delete", Some(sub_m)) => self.sub_client_delete(sub_m)?,
+                _ => panic!("Impossible"),
+            },
             _ => panic!("Impossible"),
-        },
-        _ => panic!("Impossible"),
+        }
+
+        Ok(())
     }
 
-    Ok(())
-}
+    fn sub_new(&self, sub_m: &ArgMatches) -> CLIResult {
+        let ip_range = value_t!(sub_m, "IP-RANGE", Ipv4Net)?;
+        let endpoint = value_t!(sub_m, "BIND-SOCKET-ADDR", SocketAddrV4)?;
+        let interface_name = value_t!(sub_m, "INTERFACE-NAME", String)?;
 
-fn sub_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    let ip_range = value_t!(sub_m, "IP-RANGE", Ipv4Net)?;
-    let endpoint = value_t!(sub_m, "BIND-SOCKET-ADDR", SocketAddrV4)?;
-    let interface_name = value_t!(sub_m, "INTERFACE-NAME", String)?;
-
-    let manager = Manager::new(endpoint, ip_range, interface_name);
-    let lock = acquire_config_lock(config)?;
-    save_manager(manager, lock, config)?;
-    Ok(())
-}
-
-fn sub_client_new(sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    let (mut manager, lock) = load_manager(config)?;
-
-    let name = value_t!(sub_m, "NAME", String)?;
-    let ip = value_t!(sub_m, "IP", Ipv4Addr)?;
-    let endpoint = manager.endpoint();
-
-    let (client, privkey) = manager.new_client(name, ip)?;
-    let pubkey = client.public_key();
-
-    let config_string = create_client_config(ip, pubkey, &privkey, endpoint);
-
-    println!("Here is auto-generated config:\n{}", config_string);
-
-    save_manager(manager, lock, config)?;
-    Ok(())
-}
-
-fn sub_client_list(_sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    let manager = load_manager_no_lock(config)?;
-
-    manager.clients();
-
-    let mut table: Vec<Vec<&str>> = Vec::new();
-
-    table.push(vec!["Name", "Pubkey"]);
-    for client in manager.clients() {
-        table.push(vec![client.name(), client.public_key()]);
+        let manager = Manager::new(endpoint, ip_range, interface_name);
+        let lock = acquire_config_lock(self.config)?;
+        save_manager(manager, lock, self.config, !self.dry_run)?;
+        Ok(())
     }
 
-    let lines = cli_table(table);
+    fn sub_client_new(&self, sub_m: &ArgMatches) -> CLIResult {
+        let (mut manager, lock) = load_manager(self.config)?;
 
-    for line in lines {
-        println!("{}", line);
+        let name = value_t!(sub_m, "NAME", String)?;
+        let ip = value_t!(sub_m, "IP", Ipv4Addr)?;
+        let endpoint = manager.endpoint();
+
+        let (client, privkey) = manager.new_client(name, ip)?;
+        let pubkey = client.public_key();
+
+        let config_string = create_client_config(ip, pubkey, &privkey, endpoint);
+
+        println!("Here is auto-generated config:\n{}", config_string);
+
+        save_manager(manager, lock, self.config, !self.dry_run)?;
+        Ok(())
     }
 
-    Ok(())
-}
+    fn sub_client_list(&self, _sub_m: &ArgMatches) -> CLIResult {
+        let manager = load_manager_no_lock(self.config)?;
 
-fn sub_client_delete(sub_m: &ArgMatches, config: &Path) -> CLIResult {
-    todo!();
+        manager.clients();
+
+        let mut table: Vec<Vec<&str>> = Vec::new();
+
+        table.push(vec!["Name", "Pubkey"]);
+        for client in manager.clients() {
+            table.push(vec![client.name(), client.public_key()]);
+        }
+
+        let lines = cli_table(table);
+
+        for line in lines {
+            println!("{}", line);
+        }
+
+        Ok(())
+    }
+
+    fn sub_client_delete(&self, sub_m: &ArgMatches) -> CLIResult {
+        todo!();
+    }
 }
 
 /// Loads manager from a file, providing a lock for it.
@@ -203,7 +215,11 @@ fn load_manager_no_lock(config_path: &Path) -> Result<Manager, CLIError> {
 
 /// Commits manager back to file, consuming a lock.
 // Note that `_lock` is dropped at the end of the scope, and so released
-fn save_manager(manager: Manager, _lock: Lock, config: &Path) -> CLIResult {
+fn save_manager(manager: Manager, _lock: Lock, config: &Path, commit: bool) -> CLIResult {
+    if commit {
+        manager.commit();
+    }
+
     manager
         .save_config(config)
         // TODO: sort out some way to save yourself from this failure maybe????
